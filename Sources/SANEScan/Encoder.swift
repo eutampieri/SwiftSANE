@@ -17,6 +17,30 @@ enum CodecError: Error {
     case InvalidDescription
     case MalformedData
     case InvalidString
+    case UnknownType
+}
+
+struct SaneMessage: SaneEncodable {
+    func saneEncode() throws -> Data {
+        var result = Data()
+        for value in self.storage {
+            try result.append(value.saneEncode())
+        }
+        return result
+    }
+    
+    func getLength() -> Int {
+        var result = 0
+        for value in self.storage {
+            result += value.getLength()
+        }
+        return result
+    }
+    
+    var storage: [SaneEncodable]
+    init(_ data: [SaneEncodable]) {
+        storage = data
+    }
 }
 
 /// A SANE representable value, with the SANE codec protocol
@@ -37,26 +61,6 @@ extension Array: SaneEncodable where Element == SaneEncodable {
         }
         return result
     }
-    /*func getLength(from: Data) -> Int {
-        var result = 0
-        for value in self {
-            result += value.getLength()
-        }
-        return result
-    }
-    
-    func decode(from: Data) throws -> [SaneEncodable] {
-        var result: [SaneEncodable] = []
-        var index = 0
-        guard self.getLength() <= from.count else {
-            throw CodecError.MalformedData
-        }
-        for element in self {
-            try result.append(element.decode(from: from.subdata(in: index..<index+element.getLength()))[0])
-            index += element.getLength()
-        }
-        return result
-    }*/
     
     func saneEncode() throws -> Data {
         var result = Data()
@@ -134,10 +138,10 @@ extension String: SaneEncodable {
     }
             
     func saneEncode() throws -> Data {
-        return try [
+        return try SaneMessage([
             Int32(self.getLength()),
             "\(self)\0".data(using: .ascii, allowLossyConversion: true)!
-        ].saneEncode()
+        ]).saneEncode()
     }
 }
 
@@ -148,7 +152,7 @@ extension Int: SaneEncodable {
     }
     
     func getLength() -> Int {
-        return try Int32(self).getLength()
+        return Int32(self).getLength()
     }
     
 }
@@ -192,5 +196,35 @@ extension SaneVersion: SaneEncodable {
     
     func getLength() -> Int {
         return 4
+    }
+}
+
+extension Float: SaneEncodable {
+    func getLength() -> Int {
+        return 0.getLength()
+    }
+    
+    func saneEncode() throws -> Data {
+        return try Int(self * Float(1 << 16)).saneEncode()
+    }
+}
+
+extension Double: SaneEncodable {
+    func getLength() -> Int {
+        return 0.getLength()
+    }
+    
+    func saneEncode() throws -> Data {
+        return try Float(self).saneEncode()
+    }
+}
+
+extension Bool: SaneEncodable {
+    func getLength() -> Int {
+        return 0.getLength()
+    }
+    
+    func saneEncode() throws -> Data {
+        return try Int(self ? 1 : 0).saneEncode()
     }
 }

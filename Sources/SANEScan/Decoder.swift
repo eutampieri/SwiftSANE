@@ -23,12 +23,63 @@ import Foundation
     case Raw(Data!)
 }*/
 
-protocol SaneDecodable {
-    func getLength(from data: Data) -> Int
-    func decode(from data: Data) throws -> SaneEncodable
+/// https://forums.swift.org/t/convert-uint8-to-int/30117/12
+extension FixedWidthInteger {
+  init<I>(littleEndianBytes iterator: inout I)
+  where I: IteratorProtocol, I.Element == UInt8 {
+    self = stride(from: 0, to: Self.bitWidth, by: 8).reduce(into: 0) {
+      $0 |= Self(truncatingIfNeeded: iterator.next()!) &<< $1
+    }
+  }
+  
+  init<C>(littleEndianBytes bytes: C) where C: Collection, C.Element == UInt8 {
+    precondition(bytes.count == (Self.bitWidth+7)/8)
+    var iter = bytes.makeIterator()
+    self.init(littleEndianBytes: &iter)
+  }
 }
 
-extension Array: SaneDecodable where Element == SaneDecodable {
+/// A class that parses the message and consumes it doing this
+class SaneDecoder {
+    var raw_data: Data
+    init(with data: Data) {
+        raw_data = data
+    }
+    func discard(length: Int) {
+        if raw_data.count <= length {
+            raw_data = Data()
+        } else {
+            raw_data = raw_data.advanced(by: length)
+        }
+    }
+    func extract() -> Int {
+        let INT_LENGTH = 4
+        let chunk = raw_data.subdata(in: 0..<INT_LENGTH)
+        let result = Int32(littleEndianBytes: chunk.reversed())
+        self.discard(length: INT_LENGTH)
+        return Int(result)
+    }
+    
+    func extract() throws -> String {
+        let length: Int = self.extract()
+        guard length > 0 else {
+            return ""
+        }
+        let data = raw_data.subdata(in: 0..<length-1)
+        guard let x = String(data: data, encoding: .ascii) else {
+            throw CodecError.InvalidString
+        }
+        discard(length: length)
+        return x
+    }
+    
+    /*func extract() -> Float {
+        let raw: Int = self.extract()
+        return roundf(Float(raw) / Float(1 << 16))
+    }*/
+}
+
+/*extension Array: SaneDecodable where Element == SaneDecodable {
     func getLength(from data: Data) -> Int {
         var index = 0
         for element in self {
@@ -48,28 +99,12 @@ extension Array: SaneDecodable where Element == SaneDecodable {
     }
 }
 
-extension String: SaneDecodable {
-    func getLength(from data: Data) -> Int {
-        return Int(data.first!).bigEndian
-    }
-    
-    func decode(from data: Data) throws -> SaneEncodable {
-        guard let x = String(data: data.subdata(in: 4..<(self.getLength() + 1)), encoding: .ascii) else {
-            throw CodecError.InvalidString
-        }
-        return x
-    }
-}
-
-extension Int: SaneDecodable {
-    func getLength(from data: Data) -> Int {
-        return 4
-    }
-    
-    func decode(from data: Data) throws -> SaneEncodable {
-        return data.withUnsafeBytes {
-            (pointer: UnsafePointer<Int32>) -> Int32 in
-            return pointer.pointee.bigEndian
-        }
+*/
+extension Float {
+    /*func from(word: Int) -> Float {
+        return Float.from(word: Float(word))
+    }*/
+    func fromWord() -> Float {
+        roundf(self / Float(1 << 16))
     }
 }

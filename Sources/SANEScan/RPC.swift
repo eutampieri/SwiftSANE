@@ -8,7 +8,7 @@
 import Foundation
 
 /// Most SANE operations return a value of type SANE_Status to indicate whether the completion status of the operation. If an operation completes successfully, SANE_STATUS_GOOD is returned. In case of an error, a value is returned that indicates the nature of the problem.
-enum SaneStatus: Int32 {
+enum SaneStatus: Int32, Error {
     /// Operation completed succesfully.
     case OK = 0
     /// Operation is not supported
@@ -33,6 +33,11 @@ enum SaneStatus: Int32 {
     case OutOfMemory
     /// Access to resource has been denied.
     case AccessDenied
+}
+extension SaneDecoder {
+    func extract() -> SaneStatus {
+        return SaneStatus(rawValue: Int32(self.extract())) ?? SaneStatus.Unsupported
+    }
 }
 
 enum SaneRpc: Int32 {

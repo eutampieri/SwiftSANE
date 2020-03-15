@@ -7,13 +7,16 @@ final class SANEScanTests: XCTestCase {
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
         do {
-            /*let a = try SANEScan(address: "192.168.1.9")
-            try a.listScanners()
-            print("aaa \(a.result) bbb")
-            print("PROVA")*/
-            let encoded = try ["Ciao", 1].saneEncode()
-            try print("\(["String", 1].getLength(from: encoded))")
+            let a = try SANEScan(address: "192.168.1.9")
+            let list = try a.listScanners()
+            let handle = try a.openDevice(name: list[0].name)
+            print("\(try a.getOptionDescriptors(for: handle))\n\naaaaaaaaa\n\n")
+            
+            print("\(try a.controlOption(handle: handle, option: 2, action: 0, type: .Fixed, value: 10.1))\n\n")
+            try a.getParameters(for: handle)
+            try a.closeDevice(handle: handle)
         } catch {
+            print("\(error)")
             XCTFail()
             print("ERR")
         }
